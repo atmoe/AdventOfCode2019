@@ -32,8 +32,8 @@ print "Num Orbits = {}".format(numOrbits)
 print ""
 
 # Get paths to COM for you and santa
-sanPathToCom = []
-youPathToCom = []
+sanPathToCom = []  # will not contain SAN
+youPathToCom = []  # will not contain YOU
 
 nextObj = 'YOU'
 while nextObj != 'COM':
@@ -45,7 +45,7 @@ while nextObj != 'COM':
     nextObj = orbits[nextObj]
     sanPathToCom.append(nextObj)
 
-# walk backward form COM until you get to the split point
+# walk backward from COM until you get to the split point
 youPtr = len(youPathToCom)-1
 sanPtr = len(sanPathToCom)-1
 
