@@ -7,7 +7,19 @@ import copy
 
 enableDebug = False
 
-def runProgram(program, initPC, inputVal, returnOnOutput):
+def getOpStr(op):
+    if op == 1: return "ADD"
+    if op == 2: return "MUL"
+    if op == 3: return "INPUT"
+    if op == 4: return "OUTPUT"
+    if op == 5: return "BNEZ"
+    if op == 6: return "BEZ"
+    if op == 7: return "LT"
+    if op == 8: return "EQ"
+    if op == 9: return "RELUPDATE"
+    if op == 99: return "TERMINATE"
+
+def runProgram(program, initPC, inputVal):
     outputVal = -1
     numInputsSeen = 0
 
@@ -21,7 +33,8 @@ def runProgram(program, initPC, inputVal, returnOnOutput):
         op    = opRaw % 100
         pmode = [(opRaw / 100) % 10, (opRaw / 1000) % 10, (opRaw / 10000) % 10]
 
-        if enableDebug: print "PC[{}]\top={}   ".format(pc, opRaw)
+        if enableDebug: 
+            print "PC[{}]\t{}\top={}".format(pc, getOpStr(op), opRaw)
 
         if op == 99:
             break
@@ -76,15 +89,16 @@ def runProgram(program, initPC, inputVal, returnOnOutput):
 
             paramIndices.append(paramIndex)
 
-        if enableDebug: 
-            print "\tpIdx={}".format(paramIndices)
-            print "\tparams={}".format(params)
-            if dst_param != -1: print "\tdst={}".format(params[dst_param])
+            if enableDebug:
+                print "\tP{} | pmode = {:1d} | param = {:10d} | pIdx = {:5d} | val = {:10d} | isDst = {:1} |".format(i, pmode[i], program[pc+i], paramIndex, params[-1], i==dst_param)
+
+
 
         jumpPtr = -1
         if op == 1:
             # Add
             program[params[dst_param]] = params[0] + params[1]
+            if enableDebug: print "\tADD: {} = {} + {}".format(program[params[dst_param]], params[0], params[1])
         elif op == 2:
             # Mul
             program[params[dst_param]] = params[0] * params[1]
@@ -127,7 +141,7 @@ def runProgram(program, initPC, inputVal, returnOnOutput):
             if enableDebug: print "\tEQ: {} = ({} == {})".format(program[params[dst_param]], params[0], params[1])
         elif op == 9:
             # Relative base update
-            if enableDebug: print "\tREL BASE UPDATE: {} = {} + {}".format(relativeBase + params[0], relativeBase, params[0])
+            if enableDebug: print "\tREL_UPDATE: {} = {} + {}".format(relativeBase + params[0], relativeBase, params[0])
             relativeBase = relativeBase + params[0]
         else:
             assert "invalid opcode: {}".format(op)
@@ -138,12 +152,9 @@ def runProgram(program, initPC, inputVal, returnOnOutput):
             pc += num_params
 
         if op==4:
-            if returnOnOutput:
-                return (outputVal, pc, False)
-            else:
-                print "OUTPUT: {}".format(outputVal)
+            print "OUTPUT: {}".format(outputVal)
 
-        if enableDebug: print "----------------"
+        if enableDebug: print "=================================================================================================="
 
 
     return (outputVal, pc, True)
@@ -163,9 +174,9 @@ print "-----------------"
 print "---- Part 1------"
 print "-----------------"
 
-runProgram(prog, 0, 1, False)
+runProgram(prog, 0, 1)
 
 print "-----------------"
 print "---- Part 2------"
 print "-----------------"
-runProgram(prog, 0, 2, False)
+runProgram(prog, 0, 2)
