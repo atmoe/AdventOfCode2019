@@ -57,8 +57,6 @@ for a1 in asteroids:
     visibleAsteroids = 0
     for a2 in asteroids:
         if a1 == a2: continue
-        #print "======= Start {} -> {} ======".format(a1.getStr(), a2.getStr())
-
         x = a2.x - a1.x
         y = a2.y - a1.y
         divisor = gcd(abs(x), abs(y))
@@ -71,7 +69,6 @@ for a1 in asteroids:
             assert currPoint.y >= 0 and currPoint.y < height, "y traveled outside"
 
             #print "    walk point = {} [{}]".format(currPoint.getStr(), grid[currPoint.y][currPoint.x])
-
             if grid[currPoint.y][currPoint.x] == "#":
                 otherPointSeen = True
 
@@ -88,8 +85,63 @@ for a1 in asteroids:
 
 print "maxVisible @ {} = {}".format(maxAsteroid.getStr(), maxVisible)
 
-
-
 print "----------------------"
 print "---- Part 2 ----------"
 print "----------------------"
+
+visibleFromMax = []
+for a in asteroids:
+    if a == maxAsteroid: continue
+    x = a.x - maxAsteroid.x
+    y = a.y - maxAsteroid.y
+    divisor = gcd(abs(x), abs(y))
+    ray = Point(x/divisor, y/divisor)
+        
+    currPoint = Point(maxAsteroid.x + ray.x, maxAsteroid.y + ray.y)
+    otherPointSeen = False
+    while currPoint.x != a.x or currPoint.y != a.y:
+        assert currPoint.x >= 0 and currPoint.x < width,  "x traveled outside"
+        assert currPoint.y >= 0 and currPoint.y < height, "y traveled outside"
+
+        if grid[currPoint.y][currPoint.x] == "#":
+            otherPointSeen = True
+
+        currPoint.x += ray.x
+        currPoint.y += ray.y
+
+    if not otherPointSeen:
+        visibleFromMax.append(a)
+
+orderedAsteroids = []
+for a in visibleFromMax:
+    ray = Point(a.x - maxAsteroid.x, a.y - maxAsteroid.y)
+    if ray.x == 0 and ray.y >=0:
+        angle = 90
+    elif ray.x == 0 and ray.y < 0:
+        angle = 270
+    else:
+        angle = (180.0/math.pi) * math.atan(ray.y / float(ray.x))
+
+    if ray.x < 0: angle += 180
+    if angle < 0: angle += 360
+    #print "{} -> {}: {}".format(maxAsteroid.getStr(), a.getStr(), angle)
+
+    angle = (angle+90) % 360
+
+    orderedAsteroids.append((a, angle))
+orderedAsteroids.sort(key=lambda c: c[1])
+
+asteroidCount = 0
+for a in orderedAsteroids:
+    asteroidCount+=1
+
+    #print "{}: {} -> {}: {}".format(asteroidCount, maxAsteroid.getStr(), a[0].getStr(), a[1])
+    grid[a[0].y][a[0].x] = str(asteroidCount)
+
+    if asteroidCount == 200:
+        print "200th Asteroid = {}".format(a[0].x*100 + a[0].y)
+
+
+
+
+
