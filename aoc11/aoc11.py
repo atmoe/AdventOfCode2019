@@ -15,6 +15,45 @@ class Point:
     def getStr(self):
         return "({}, {})".format(self.x, self.y)
 
+def printGrid(locs, robLoc, dir):
+    maxX = 0
+    maxY = 0
+    minX = 0
+    minY = 0
+    for k in locs.keys():
+        if maxX < k[0]: maxX = k[0]
+        if minX > k[0]: minX = k[0]
+        if maxY < k[1]: maxY = k[1]
+        if minY > k[1]: minY = k[1]
+
+    if maxX < robLoc.x: maxX = robLoc.x
+    if minX > robLoc.x: minX = robLoc.x
+    if maxY < robLoc.y: maxY = robLoc.y
+    if minY > robLoc.y: minY = robLoc.y
+
+    grid = []
+    for y in range(maxY-minY+1):
+        gridRow = []
+        for x in range(maxX-minX+1):
+            gridRow.append('.')
+        grid.append(gridRow)
+
+    for k in locs.keys():
+
+        if locs[k] == 1:
+            grid[k[1] - minY][k[0] - minX] = '#'
+        else:
+            grid[k[1] - minY][k[0] - minX] = '.'
+
+    if robotDir==0: grid[robLoc.y-minY][robLoc.x-minX] = '^'
+    if robotDir==1: grid[robLoc.y-minY][robLoc.x-minX] = '>'
+    if robotDir==2: grid[robLoc.y-minY][robLoc.x-minX] = 'v'
+    if robotDir==3: grid[robLoc.y-minY][robLoc.x-minX] = '<'
+
+    for g in grid:
+        print "".join(g)
+    
+
 def getOpStr(op):
     if op == 1: return "ADD"
     if op == 2: return "MUL"
@@ -34,11 +73,7 @@ def getDirStr(dir):
     if dir == 3: return "LEFT"
 
 # Return Tuple is PC, Outputs[2], Terminated
-def runProgram(program, initPC, inputVal):
-    outputs = [-1000, -1000]
-    outputsSeen = 0
-    setInput = True
-
+def runProgram(program, initPC, inputVal, setInput):
     relativeBase = 0
     pc = initPC
     terminated = False
@@ -53,7 +88,7 @@ def runProgram(program, initPC, inputVal):
             print "PC[{}]\t{}\top={}".format(pc, getOpStr(op), opRaw)
 
         if op == 99:
-            return (pc, outputs, True)
+            return (pc, 13131313, True, False)
 
         ### Decode ###
         opIsJump = False
@@ -122,15 +157,15 @@ def runProgram(program, initPC, inputVal):
                 program[params[dst_param]] = inputVal
                 setInput=False
             else:
-                return (pc-1, outputs, False)
+                if enableDebug: print "Waiting for input: {} {}".format(pc-1, outputs)
+                return (pc-1, 13131313, False, False)
 
             if enableDebug: print "\tINPUT: {}".format(inputVal)
 
         elif op == 4:
             # Output
-            outputs[outputsSeen] = params[0]
-            outputsSeen+=1
-            #print "OUTPUT: {}".format(params[0])
+            print "OUTPUT: {}".format(params[0])
+            return (pc+num_params, params[0], False, True)
         elif op == 5:
             # branch NEZ
             if params[0] != 0:
@@ -191,44 +226,50 @@ print "-----------------"
 print "---- Part 1------"
 print "-----------------"
 
-terminated = False
+term = False
 pc = 0
 visitedLocs = {}
 robotLoc = Point(0,0)
 robotDir = 0 # 0 - up, 1 - right, 2 - down, 3 - left
-iteration = 0
-#while not terminated:
-for i in range(20):
-    color = 0
-    if robotLoc.getStr() in visitedLocs:
-        color = visitedLocs[robotLoc.getStr()]
-        #print "r = {} ".format(color),
+outputMode = False
+setNextInput = True
+nextInput = 1
+while not term:
+#for i in range(20):
+    (pc, outputVal, term, isOutput) = runProgram(prog, pc, nextInput, setNextInput)
 
-    returnVal = runProgram(prog, pc, color)
+    setNextInput = False
+    if term: continue
 
-    terminated = returnVal[2]
-    if terminated: continue
+    if not isOutput:
+        locKey = (robotLoc.x, robotLoc.y)
+        if locKey in visitedLocs.keys():
+            nextInput = visitedLocs[locKey]
+        else:
+            nextInput = 0
 
-    pc = returnVal[0]
-    color = returnVal[1][0]
-    rotate = returnVal[1][1]
+        setNextInput = True
 
-    visitedLocs[robotLoc.getStr()] = color
+    elif outputMode==False:
+        locKey = (robotLoc.x, robotLoc.y)
+        visitedLocs[locKey] = outputVal
+        outputMode = not outputMode
+    else:
+        if outputVal == 1: # RIGHT
+            robotDir = (robotDir + 1) % 4
+        elif outputVal == 0: # LEFT
+            robotDir = (robotDir - 1 + 4) % 4
 
-    if rotate == 1: # RIGHT
-        robotDir = (robotDir + 1) % 4
-    elif rotate == 0: # LEFT
-        robotDir = (robotDir - 1 + 4) % 4
+        if   robotDir == 0:  robotLoc = Point(robotLoc.x + 0, robotLoc.y - 1)
+        elif robotDir == 1:  robotLoc = Point(robotLoc.x + 1, robotLoc.y + 0)
+        elif robotDir == 2:  robotLoc = Point(robotLoc.x + 0, robotLoc.y + 1)
+        elif robotDir == 3:  robotLoc = Point(robotLoc.x - 1, robotLoc.y + 0)
 
-    #print robotLoc.getStr(),
-    if   robotDir == 0:  robotLoc = Point(robotLoc.x + 0, robotLoc.y - 1)
-    elif robotDir == 1:  robotLoc = Point(robotLoc.x + 1, robotLoc.y + 0)
-    elif robotDir == 2:  robotLoc = Point(robotLoc.x + 0, robotLoc.y + 1)
-    elif robotDir == 3:  robotLoc = Point(robotLoc.x - 1, robotLoc.y + 0)
+        outputMode = not outputMode
 
-    #print " -> {} color = {}  dir = {}".format(robotLoc.getStr(), color, getDirStr(robotDir))
-    print iteration
-    iteration+=1
+        print "=========================================================================="
+        printGrid(visitedLocs, robotLoc, robotDir)
+        print len(visitedLocs)
 
 print "Painted Cells = {}".format(len(visitedLocs.keys()))
 
