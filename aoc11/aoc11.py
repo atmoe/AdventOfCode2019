@@ -55,16 +55,17 @@ def printGrid(locs, robLoc, dir):
     
 
 def getOpStr(op):
-    if op == 1: return "ADD"
-    if op == 2: return "MUL"
-    if op == 3: return "INPUT"
-    if op == 4: return "OUTPUT"
-    if op == 5: return "BNEZ"
-    if op == 6: return "BEZ"
-    if op == 7: return "LT"
-    if op == 8: return "EQ"
-    if op == 9: return "RELUPDATE"
-    if op == 99: return "TERMINATE"
+    assert (op > 0 and op < 10) or op == 99, "invalid op! {}".format(op)
+    if   op == 1: return "ADD"
+    elif op == 2: return "MUL"
+    elif op == 3: return "INPUT"
+    elif op == 4: return "OUTPUT"
+    elif op == 5: return "BNEZ"
+    elif op == 6: return "BEZ"
+    elif op == 7: return "LT"
+    elif op == 8: return "EQ"
+    elif op == 9: return "RELUPDATE"
+    elif op == 99: return "TERMINATE"
 
 def getDirStr(dir):
     if dir == 0: return "UP"
@@ -72,144 +73,144 @@ def getDirStr(dir):
     if dir == 2: return "DOWN"
     if dir == 3: return "LEFT"
 
-# Return Tuple is PC, Outputs[2], Terminated
-def runProgram(program, initPC, inputVal, setInput):
-    relativeBase = 0
-    pc = initPC
-    terminated = False
-    while pc < len(program) and not terminated:
+class Program:
+    def __init__(self,prog):
+        self.program = copy.deepcopy(prog)
+        self.relBase = 0
 
-        opRaw  = program[pc]
+    # Return Tuple is PC, Outputs[2], Terminated
+    def runProgram(self, initPC, inputVal, setInput):
+        pc = initPC
+        terminated = False
+        while pc < len(self.program) and not terminated:
 
-        op    = opRaw % 100
-        pmode = [(opRaw / 100) % 10, (opRaw / 1000) % 10, (opRaw / 10000) % 10]
+            opRaw  = self.program[pc]
 
-        if enableDebug: 
-            print "PC[{}]\t{}\top={}".format(pc, getOpStr(op), opRaw)
+            op    = opRaw % 100
+            pmode = [(opRaw / 100) % 10, (opRaw / 1000) % 10, (opRaw / 10000) % 10]
 
-        if op == 99:
-            return (pc, 13131313, True, False)
+            if enableDebug: 
+                print "PC[{}]\t{}\top={}".format(pc, getOpStr(op), opRaw)
 
-        ### Decode ###
-        opIsJump = False
-        if op == 1 or op == 2:
-            num_params = 3
-            dst_param  = 2
-        elif op == 3:
-            num_params = 1
-            dst_param  = 0
-        elif op == 4:
-            num_params = 1
-            dst_param  = -1 # no destination for read
-        elif op == 5 or op == 6:
-            num_params = 2
-            dst_param  = -1 # no destination for jump
-            opIsJump = True
-        elif op == 7 or op == 8:
-            num_params = 3
-            dst_param  = 2
-        elif op == 9:
-            num_params = 1
-            dst_param  = -1
-        else:
-            assert "invalid op"
+            if op == 99:
+                return (pc, 13131313, True, False)
 
-        # increment to params
-        pc += 1
-
-        params       = []
-        paramIndices = []
-        for i in range(num_params):
-            paramIndex = -1
-            if   pmode[i] == 2:   paramIndex = program[pc+i] + relativeBase # relative mode (affects destinations too)
-            elif i == dst_param:  paramIndex = program[pc+i]                # destination parameter
-            elif pmode[i] == 0:   paramIndex = program[pc+i]                # position mode
-            elif pmode[i] == 1:   paramIndex = pc+i                         # immediate mode
+            ### Decode ###
+            opIsJump = False
+            if op == 1 or op == 2:
+                num_params = 3
+                dst_param  = 2
+            elif op == 3:
+                num_params = 1
+                dst_param  = 0
+            elif op == 4:
+                num_params = 1
+                dst_param  = -1 # no destination for read
+            elif op == 5 or op == 6:
+                num_params = 2
+                dst_param  = -1 # no destination for jump
+                opIsJump = True
+            elif op == 7 or op == 8:
+                num_params = 3
+                dst_param  = 2
+            elif op == 9:
+                num_params = 1
+                dst_param  = -1
             else:
-                assert "invalid pmode"
+                assert "invalid op"
 
-            # allocation check
-            if paramIndex >= len(program):
-                program = program + ([0] * (paramIndex - len(program) + 1))
+            # increment to params
+            pc += 1
 
-            if i == dst_param:
-                params.append(paramIndex)
+            params       = []
+            for i in range(num_params):
+                paramIndex = -1
+                if   pmode[i] == 2:   paramIndex = self.program[pc+i] + self.relBase # relative mode (affects destinations too)
+                elif i == dst_param:  paramIndex = self.program[pc+i]                # destination parameter
+                elif pmode[i] == 0:   paramIndex = self.program[pc+i]                # position mode
+                elif pmode[i] == 1:   paramIndex = pc+i                         # immediate mode
+                else:
+                    assert "invalid pmode"
+
+                # allocation check
+                if paramIndex >= len(self.program):
+                    self.program = self.program + ([0] * (paramIndex - len(self.program) + 1))
+
+                if i == dst_param:
+                    params.append(paramIndex)
+                else:
+                    params.append(self.program[paramIndex])
+
+                if enableDebug:
+                    print "\tP{} | pmode = {:1d} | param = {:10d} | pIdx = {:5d} | val = {:10d} | isDst = {:1} |".format(i, pmode[i], self.program[pc+i], paramIndex, params[-1], i==dst_param)
+
+            jumpPtr = -1
+            if op == 1:
+                # Add
+                self.program[params[dst_param]] = params[0] + params[1]
+                if enableDebug: print "\tADD: {} = {} + {}".format(self.program[params[dst_param]], params[0], params[1])
+            elif op == 2:
+                # Mul
+                self.program[params[dst_param]] = params[0] * params[1]
+                if enableDebug: print "\tMUL: {} = {} * {}".format(self.program[params[dst_param]], params[0], params[1])
+            elif op == 3:
+                # Input
+                if setInput:
+                    self.program[params[dst_param]] = inputVal
+                    setInput=False
+                else:
+                    return (pc-1, 13131313, False, False)
+
+                if enableDebug: print "\tINPUT: {}".format(inputVal)
+
+            elif op == 4:
+                # Output
+                #print "OUTPUT: {}".format(params[0])
+                return (pc+num_params, params[0], False, True)
+            elif op == 5:
+                # branch NEZ
+                if params[0] != 0:
+                    jumpPtr = params[1]
+                else:
+                    jumpPtr = pc + num_params
+                if enableDebug: print "\tBRANCH NEZ: val={} to={} finalPtr={}".format(params[0], params[1], jumpPtr)
+            elif op == 6:
+                # branch EZ
+                if params[0] == 0:
+                    jumpPtr = params[1]
+                else:
+                    jumpPtr = pc + num_params
+                if enableDebug: print "\tBRANCH EZ: val={} to={} finalPtr={}".format(params[0], params[1], jumpPtr)
+            elif op == 7:
+                # LT
+                if params[0] < params[1]:
+                    self.program[params[dst_param]] = 1
+                else:
+                    self.program[params[dst_param]] = 0
+
+                if enableDebug: print "\tLT: {} = ({} < {})".format(self.program[params[dst_param]], params[0], params[1])
+            elif op == 8:
+                # EQ
+                if params[0] == params[1]:
+                    self.program[params[dst_param]] = 1
+                else:
+                    self.program[params[dst_param]] = 0
+                if enableDebug: print "\tEQ: {} = ({} == {})".format(self.program[params[dst_param]], params[0], params[1])
+            elif op == 9:
+                # Relative base update
+                if enableDebug: print "\tREL_UPDATE: {} = {} + {}".format(self.relBase + params[0], self.relBase, params[0])
+                self.relBase = self.relBase + params[0]
             else:
-                params.append(program[paramIndex])
+                assert "invalid opcode: {}".format(op)
 
-            paramIndices.append(paramIndex)
-
-            if enableDebug:
-                print "\tP{} | pmode = {:1d} | param = {:10d} | pIdx = {:5d} | val = {:10d} | isDst = {:1} |".format(i, pmode[i], program[pc+i], paramIndex, params[-1], i==dst_param)
-
-        jumpPtr = -1
-        if op == 1:
-            # Add
-            program[params[dst_param]] = params[0] + params[1]
-            if enableDebug: print "\tADD: {} = {} + {}".format(program[params[dst_param]], params[0], params[1])
-        elif op == 2:
-            # Mul
-            program[params[dst_param]] = params[0] * params[1]
-            if enableDebug: print "\tMUL: {} = {} * {}".format(program[params[dst_param]], params[0], params[1])
-        elif op == 3:
-            # Input
-            if setInput:
-                program[params[dst_param]] = inputVal
-                setInput=False
+            if opIsJump:
+                pc = jumpPtr
             else:
-                if enableDebug: print "Waiting for input: {} {}".format(pc-1, outputs)
-                return (pc-1, 13131313, False, False)
+                pc += num_params
 
-            if enableDebug: print "\tINPUT: {}".format(inputVal)
+            if enableDebug: print "=================================================================================================="
 
-        elif op == 4:
-            # Output
-            print "OUTPUT: {}".format(params[0])
-            return (pc+num_params, params[0], False, True)
-        elif op == 5:
-            # branch NEZ
-            if params[0] != 0:
-                jumpPtr = params[1]
-            else:
-                jumpPtr = pc + num_params
-            if enableDebug: print "\tBRANCH NEZ: val={} to={} finalPtr={}".format(params[0], params[1], jumpPtr)
-        elif op == 6:
-            # branch EZ
-            if params[0] == 0:
-                jumpPtr = params[1]
-            else:
-                jumpPtr = pc + num_params
-            if enableDebug: print "\tBRANCH EZ: val={} to={} finalPtr={}".format(params[0], params[1], jumpPtr)
-        elif op == 7:
-            # LT
-            if params[0] < params[1]:
-                program[params[dst_param]] = 1
-            else:
-                program[params[dst_param]] = 0
-
-            if enableDebug: print "\tLT: {} = ({} < {})".format(program[params[dst_param]], params[0], params[1])
-        elif op == 8:
-            # EQ
-            if params[0] == params[1]:
-                program[params[dst_param]] = 1
-            else:
-                program[params[dst_param]] = 0
-            if enableDebug: print "\tEQ: {} = ({} == {})".format(program[params[dst_param]], params[0], params[1])
-        elif op == 9:
-            # Relative base update
-            if enableDebug: print "\tREL_UPDATE: {} = {} + {}".format(relativeBase + params[0], relativeBase, params[0])
-            relativeBase = relativeBase + params[0]
-        else:
-            assert "invalid opcode: {}".format(op)
-
-        if opIsJump:
-            pc = jumpPtr
-        else:
-            pc += num_params
-
-        if enableDebug: print "=================================================================================================="
-
-    assert "reached end of program without hitting term instruction"
+        assert "reached end of program without hitting term instruction"
 
 ### Main Program
 
@@ -226,6 +227,7 @@ print "-----------------"
 print "---- Part 1------"
 print "-----------------"
 
+myProgram = Program(prog)
 term = False
 pc = 0
 visitedLocs = {}
@@ -233,10 +235,9 @@ robotLoc = Point(0,0)
 robotDir = 0 # 0 - up, 1 - right, 2 - down, 3 - left
 outputMode = False
 setNextInput = True
-nextInput = 1
+nextInput = 0
 while not term:
-#for i in range(20):
-    (pc, outputVal, term, isOutput) = runProgram(prog, pc, nextInput, setNextInput)
+    (pc, outputVal, term, isOutput) = myProgram.runProgram(pc, nextInput, setNextInput)
 
     setNextInput = False
     if term: continue
@@ -267,12 +268,56 @@ while not term:
 
         outputMode = not outputMode
 
-        print "=========================================================================="
-        printGrid(visitedLocs, robotLoc, robotDir)
-        print len(visitedLocs)
+        #print "=========================================================================="
+        #printGrid(visitedLocs, robotLoc, robotDir)
+        #print len(visitedLocs)
 
 print "Painted Cells = {}".format(len(visitedLocs.keys()))
 
 print "-----------------"
 print "---- Part 2------"
 print "-----------------"
+myProgram = Program(prog)
+term = False
+pc = 0
+visitedLocs = {}
+robotLoc = Point(0,0)
+robotDir = 0 # 0 - up, 1 - right, 2 - down, 3 - left
+outputMode = False
+setNextInput = True
+nextInput = 1
+cnt=0
+while not term:
+    cnt+=1
+    (pc, outputVal, term, isOutput) = myProgram.runProgram(pc, nextInput, setNextInput)
+
+    setNextInput = False
+    if term: continue
+
+    if not isOutput:
+        locKey = (robotLoc.x, robotLoc.y)
+        if locKey in visitedLocs.keys():
+            nextInput = visitedLocs[locKey]
+        else:
+            nextInput = 0
+
+        setNextInput = True
+
+    elif outputMode==False:
+        locKey = (robotLoc.x, robotLoc.y)
+        visitedLocs[locKey] = outputVal
+        outputMode = not outputMode
+    else:
+        if outputVal == 1: # RIGHT
+            robotDir = (robotDir + 1) % 4
+        elif outputVal == 0: # LEFT
+            robotDir = (robotDir - 1 + 4) % 4
+
+        if   robotDir == 0:  robotLoc = Point(robotLoc.x + 0, robotLoc.y - 1)
+        elif robotDir == 1:  robotLoc = Point(robotLoc.x + 1, robotLoc.y + 0)
+        elif robotDir == 2:  robotLoc = Point(robotLoc.x + 0, robotLoc.y + 1)
+        elif robotDir == 3:  robotLoc = Point(robotLoc.x - 1, robotLoc.y + 0)
+
+        outputMode = not outputMode
+
+printGrid(visitedLocs, robotLoc, robotDir)
