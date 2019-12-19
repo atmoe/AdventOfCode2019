@@ -3,6 +3,7 @@
 import sys
 import math
 import re
+import copy
 
 class Vector3:
     def __init__(self, x, y, z):
@@ -33,55 +34,59 @@ class Moon:
         return abs(self.vel.x) + abs(self.vel.y) + abs(self.vel.z)
 
     def printMe(self):
-        print "pos=<x={:3}, y={:3}, z={:3}>, vel=<x={:3}, y={:3}, z={:3}>".format(self.pos.x, self.pos.y, self.pos.z, self.vel.x, self.vel.y, self.vel.z)
+        print "pos=<x={:5}, y={:5}, z={:5}>, vel=<x={:5}, y={:5}, z={:5}>".format(self.pos.x, self.pos.y, self.pos.z, self.vel.x, self.vel.y, self.vel.z)
 
+    def printPos(self):
+        print "{:5} {:5} {:5}".format(self.pos.x, 0,0)#self.pos.y, self.pos.z)
 
+def gcd(a, b):
+    if b == 0:
+        return a
+    return gcd(b, a % b)
 
 def applyGravity(m1, m2):
     m1Update = Vector3(0,0,0)
     m2Update = Vector3(0,0,0)
-    if m1.pos.x > m2.pos.x:
-        m1Update.x = -1
-        m2Update.x =  1
-    elif m1.pos.x < m2.pos.x:
-        m1Update.x =  1
-        m2Update.x = -1
 
-    if m1.pos.y > m2.pos.y:
-        m1Update.y = -1
-        m2Update.y =  1
-    elif m1.pos.y < m2.pos.y:
-        m1Update.y =  1
-        m2Update.y = -1
+    m1Update.x = int(m1.pos.x < m2.pos.x) - int(m1.pos.x > m2.pos.x)
+    m2Update.x = int(m1.pos.x > m2.pos.x) - int(m1.pos.x < m2.pos.x)
 
-    if m1.pos.z > m2.pos.z:
-        m1Update.z = -1
-        m2Update.z =  1
-    elif m1.pos.z < m2.pos.z:
-        m1Update.z =  1
-        m2Update.z = -1
+    m1Update.y = int(m1.pos.y < m2.pos.y) - int(m1.pos.y > m2.pos.y)
+    m2Update.y = int(m1.pos.y > m2.pos.y) - int(m1.pos.y < m2.pos.y)
+
+    m1Update.z = int(m1.pos.z < m2.pos.z) - int(m1.pos.z > m2.pos.z)
+    m2Update.z = int(m1.pos.z > m2.pos.z) - int(m1.pos.z < m2.pos.z)
 
     m1.updateVel(m1Update)
     m2.updateVel(m2Update)
 
-def genStateHash(moons):
-    stateHash = ""
-    for m in moons:
-        stateHash+=str(m.pos.x)
-        stateHash+=str(m.pos.y)
-        stateHash+=str(m.pos.z)
-        stateHash+=str(m.vel.x)
-        stateHash+=str(m.vel.y)
-        stateHash+=str(m.vel.z)
+def applyGravityOneAxis(m1, m2, axis):
+    m1Update = Vector3(0,0,0)
+    m2Update = Vector3(0,0,0)
 
-    return stateHash
+    if axis == 0:
+        m1Update.x = int(m1.pos.x < m2.pos.x) - int(m1.pos.x > m2.pos.x)
+        m2Update.x = int(m1.pos.x > m2.pos.x) - int(m1.pos.x < m2.pos.x)
 
+    if axis == 1:
+        m1Update.y = int(m1.pos.y < m2.pos.y) - int(m1.pos.y > m2.pos.y)
+        m2Update.y = int(m1.pos.y > m2.pos.y) - int(m1.pos.y < m2.pos.y)
+
+    if axis == 2:
+        m1Update.z = int(m1.pos.z < m2.pos.z) - int(m1.pos.z > m2.pos.z)
+        m2Update.z = int(m1.pos.z > m2.pos.z) - int(m1.pos.z < m2.pos.z)
+
+    m1.updateVel(m1Update)
+    m2.updateVel(m2Update)
+
+
+### MAIN PROGRAM ####
 
 assert len(sys.argv) == 2, sys.argv[0] + " requires 1 argument!"
 
 
 inputFile = open(sys.argv[1], "r")
-moons=[]
+moonsInput=[]
 for line in inputFile.readlines():
     m = re.match("^<x=(-?\d+), y=(-?\d+), z=(-?\d+)>", line)
     assert m, "invalid input line!"    
@@ -90,7 +95,7 @@ for line in inputFile.readlines():
     y = int(m.group(2))
     z = int(m.group(3))
 
-    moons.append(Moon(Vector3(x,y,z)))
+    moonsInput.append(Moon(Vector3(x,y,z)))
 
 inputFile.close()
 
@@ -98,12 +103,7 @@ inputFile.close()
 print "----------------------"
 print "---- Part 1 ----------"
 print "----------------------"
-
-print "Step = 0"
-for m in moons:
-    m.printMe()
-print "----------------------"
-
+moons = copy.deepcopy(moonsInput)
 moonCombos = []
 moonCombos.append((moons[0], moons[1]))
 moonCombos.append((moons[0], moons[2]))
@@ -119,10 +119,10 @@ for step in range(1,1001):
     for m in moons:
         m.updatePos()
 
-    print "Step = {}".format(step)
-    for m in moons:
-        m.printMe()
-    print "----------------------"
+    #print "Step = {}".format(step)
+    #for m in moons:
+    #    m.printMe()
+    #print "----------------------"
 
 totalEnergy = 0
 for m in moons:
@@ -138,28 +138,39 @@ print "----------------------"
 print "---- Part 2 ----------"
 print "----------------------"
 
-revisitedState=False
-priorStates = {}
-step = 0
-priorStates[genStateHash(moons)] = 1
-while not revisitedState:
-    step+=1
+moons = copy.deepcopy(moonsInput)
+moonCombos.append((moons[0], moons[1]))
+moonCombos.append((moons[0], moons[2]))
+moonCombos.append((moons[0], moons[3]))
+moonCombos.append((moons[1], moons[2]))
+moonCombos.append((moons[1], moons[3]))
+moonCombos.append((moons[2], moons[3]))
 
-    for comb in moonCombos:
-        applyGravity(comb[0], comb[1])
+stepsPerAxis = [-1,-1,-1]
+for axis in [0,1,2]:
+    step = 0
+    revisitedState=False
+    while not revisitedState:
+        step+=1
 
-    for m in moons:
-        m.updatePos()
+        for comb in moonCombos:
+            applyGravityOneAxis(comb[0], comb[1], axis)
 
-    stHash = genStateHash(moons)
+        for m in moons:
+            m.updatePos()
 
-    if stHash in priorStates:
-        revisitedState=True
-    else:
-        priorStates[stHash] = 1
+        revisitedState = True
+        for idx,m in enumerate(moons):
+            if axis == 0: revisitedState &= ((m.pos.x == moonsInput[idx].pos.x) and (m.vel.x == 0))
+            if axis == 1: revisitedState &= ((m.pos.y == moonsInput[idx].pos.y) and (m.vel.y == 0))
+            if axis == 2: revisitedState &= ((m.pos.z == moonsInput[idx].pos.z) and (m.vel.z == 0))
 
-    if step % 100000 == 0:
-        print step
+        if revisitedState:
+            stepsPerAxis[axis] = step
 
+print stepsPerAxis
+lcmXY  = (stepsPerAxis[0] * stepsPerAxis[1])/gcd(stepsPerAxis[0], stepsPerAxis[1])
+lcmXYZ = (stepsPerAxis[2] * lcmXY)/gcd(stepsPerAxis[2], lcmXY)
 
-print "Num Steps to Revisit = {}".format(step)
+print "Num Steps to Revisit = {}".format(lcmXYZ)
+
